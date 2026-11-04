@@ -1,5 +1,6 @@
 
 def call(Map config = [:]) {
+
     String appDir = config.get('appDir', '.')
     String buildCommand = config.get('buildCommand', 'npm ci')
 
@@ -9,7 +10,12 @@ def call(Map config = [:]) {
         sh buildCommand
     }
 
-    env.IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
+    String shortCommit = sh(
+        script: 'git rev-parse --short=7 HEAD',
+        returnStdout: true
+    ).trim()
+
+    env.IMAGE_TAG = "${env.BUILD_NUMBER}-${shortCommit}"
 
     echo "Application build completed."
     echo "Image tag: ${env.IMAGE_TAG}"
