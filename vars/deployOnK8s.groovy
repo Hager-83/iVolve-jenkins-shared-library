@@ -1,5 +1,6 @@
 
 def call(Map config = [:]) {
+
     String namespace = config.get('namespace', 'default')
     String deployment = config.deployment
     String container = config.container
@@ -12,7 +13,7 @@ def call(Map config = [:]) {
     }
 
     if (!env.FULL_IMAGE?.trim()) {
-        error('FULL_IMAGE is required. Run buildImage first.')
+        error('FULL_IMAGE is missing')
     }
 
     withEnv([
@@ -22,30 +23,57 @@ def call(Map config = [:]) {
         "DEPLOY_MANIFEST=${manifest}",
         "KUBECTL_BIN=${kubectl}"
     ]) {
+
         withCredentials([
             file(
                 credentialsId: credentialsId,
                 variable: 'KUBECONFIG'
             )
         ]) {
+
             sh '''
                 set -e
 
-                echo "Updating deployment manifest..."
+                echo "Updating deployment image..."
 
-                "$KUBECTL_BIN" set image \
-                  -f "$DEPLOY_MANIFEST" \
-                  "$DEPLOY_CONTAINER=$FULL_IMAGE" \
-                  --local \
-                  -o yaml > deployment-updated.yaml
+                python3 - <<'PY'
+import os
+import re
+from pathlib import Path
 
-                echo "Deploying updated manifest..."
+path = Path(os.environ["DEPLOY_MANIFEST"])
+content = path.read_text()
+
+container = re.escape(os.environ["DEPLOY_CONTAINER"])
+image = os.environ["FULL_IMAGE"]
+
+pattern = (
+    r"(?m)^(\\s*-\\s*name:\\s*" + container +
+    r"\\s*\\n\\s*image:\\s*)\\S+"
+)
+
+updated, count = re.subn(
+    pattern,
+    lambda match: match.group(1) + image,
+    content
+)
+
+if count != 1:
+    raise SystemExit(
+        f"Expected one matching container, found {count}"
+    )
+
+path.write_text(updated)
+print(f"Updated {path} with {image}")
+PY
+
+                echo "Applying Kubernetes deployment..."
 
                 "$KUBECTL_BIN" apply \
-                  -f deployment-updated.yaml \
+                  -f "$DEPLOY_MANIFEST" \
                   -n "$DEPLOY_NAMESPACE"
 
-                echo "Waiting for deployment rollout..."
+                echo "Checking rollout..."
 
                 "$KUBECTL_BIN" rollout status \
                   deployment/"$DEPLOY_NAME" \
