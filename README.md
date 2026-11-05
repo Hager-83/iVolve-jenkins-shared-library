@@ -16,7 +16,7 @@ iVolve-jenkins-shared-library/
 ├── vars/
 │   ├── buildApp.groovy
 │   ├── buildImage.groovy
-│   └── deployOnK8s.groovy
+│   └── updateGitOpsManifest.groovy
 └── README.md
 ```
 
@@ -26,7 +26,7 @@ iVolve-jenkins-shared-library/
 |---|---|
 | `buildApp()` | Checks out source code, installs dependencies or builds the application, and generates an image tag. |
 | `buildImage()` | Builds a Docker image, scans it using Trivy, pushes it to Docker Hub, and removes the local image. |
-| `deployOnK8s()` | Updates the application image in a Kubernetes manifest and deploys it to the cluster. |
+| `updateGitOpsManifest()` | Updates the Kubernetes image tag, commits the manifest, and pushes it to GitHub for Argo CD synchronization. |
 
 ## Usage
 
@@ -52,18 +52,16 @@ buildImage(
     scanSeverity: 'HIGH,CRITICAL'
 )
 
-deployOnK8s(
-    namespace: 'ivolve',
-    deployment: 'ivolveapp',
-    container: 'ivolve-app',
+updateGitOpsManifest(
     manifest: 'kubernetes/deployment.yaml',
-    kubeCredentials: 'kubeconfig-ivolve'
+    container: 'ivolve-app',
+    gitCredentials: 'github-private-repos'
 )
 ```
 
 ## Technologies
 
-Jenkins · Groovy · GitHub · Docker · Trivy · Docker Hub · Kubernetes
+Jenkins · Groovy · GitHub · Docker · Trivy · Docker Hub · Kubernetes · Argo CD · GitOps
 
 ## Related Project
 
